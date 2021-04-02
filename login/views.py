@@ -2,13 +2,19 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 import hashlib
 import datetime
-import asyncio
+from threading import Thread
 
 from .models import *
 from .forms import *
 
 
 # Create your views here.
+def async_call(fn):
+    def wrapper(*args, **kwargs):
+        Thread(target=fn, args=args, kwargs=kwargs).start()
+    return wrapper
+
+
 def hash_code(s, salt='mysite'):
     h = hashlib.sha256()
     s += salt
@@ -23,7 +29,8 @@ def make_confirm_string(user):
     return code
 
 
-async def send_email(email, code):
+@async_call
+def send_email(email, code):
     from django.core.mail import EmailMultiAlternatives
     subject = '来自www.hachon.com的注册确认邮件'
     text_content = '''感谢注册www.hachon.com，这里是haohon的博客和教程站点！如果你看到这条消息，说明你的邮箱服务器不提供HTML连接功能，请联系管理员'''
@@ -107,7 +114,7 @@ def register(request):
 
                 new_user = User.objects.create(name=username, password=hash_code(password1), email=email, sex=sex)
                 code = make_confirm_string(new_user)
-                asyncio.run(send_email(email, code))
+                send_email(email, code)
                 return redirect('/login/')
         else:
             return render(request, 'login/register.html', locals())
